@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VideoCall PRO</title>
+</head>
+<body>
+
+<h2>Videollamada funcionando 🎥</h2>
+
+<video id="localVideo" autoplay muted style="width:300px;"></video>
+<video id="remoteVideo" autoplay style="width:300px;"></video>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const room = "sala1";
+
+let localStream;
+let peer;
+
+const localVideo = document.getElementById("localVideo");
+const remoteVideo = document.getElementById("remoteVideo");
+
+navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+.then(stream => {
+    localStream = stream;
+    localVideo.srcObject = stream;
+
+    socket.emit("join-room", room);
+});
+
+socket.on("user-connected", () => {
+    startCall();
+});
+
+socket.on("signal", async data => {
+    if (data.offer) {
+        await createAnswer(data.offer);
+    } else if (data.answer) {
+        await peer.setRemoteDescription(data.answer);
+    } else if (data.candidate) {
+        await peer.addIceCandidate(data.candidate);
+    }
+});
+
+function createPeer() {
+    peer = new RTCPeerConnection({
+        iceServers: [
+            { urls: "stun:stun.l.google.com:19302" }
+        ]
+    });
+
+    localStream.getTracks().forEach(track => {
+        peer.addTrack(track, localStream);
+    });
+
+    peer.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+    };
+
+    peer.onicecandidate = event => {
+        if (event.candidate) {
+            socket.emit("signal", { candidate: event.candidate });
+        }
+    };
+}
+
+async function startCall() {
+    createPeer();
+
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+
+    socket.emit("signal", { offer });
+}
+
+async function createAnswer(offer) {
+    createPeer();
+
+    await peer.setRemoteDescription(offer);
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+
+    socket.emit("signal", { answer });
+}
+</script>
+
+</body>
+</html>
