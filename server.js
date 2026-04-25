@@ -1,24 +1,29 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static("public"));
+// 🔥 FORZAR carpeta pública correctamente
+app.use(express.static(path.join(__dirname, "public")));
 
-// Socket.io lógica de videollamada
+// 🔥 SI ENTRAN A "/" SIEMPRE CARGA index.html
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// SOCKET IO
 io.on("connection", (socket) => {
     console.log("Usuario conectado:", socket.id);
 
     socket.on("join-room", (room) => {
         socket.join(room);
 
-        // Avisar a otros usuarios en la sala
         socket.to(room).emit("user-connected", socket.id);
 
-        // Señalización WebRTC
         socket.on("signal", (data) => {
             socket.to(room).emit("signal", {
                 id: socket.id,
@@ -32,7 +37,7 @@ io.on("connection", (socket) => {
     });
 });
 
-// 🔥 IMPORTANTE: puerto dinámico para Render
+// PORT PARA RENDER
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
