@@ -1,49 +1,194 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Videollamada</title>
+<meta charset="UTF-8">
+<title>Videollamada PRO</title>
+
+<style>
+body { font-family: Arial; }
+video { width: 220px; margin:5px; background:black; border-radius:10px; }
+#videos { display:flex; flex-wrap:wrap; }
+#chat { height:150px; overflow:auto; border:1px solid #ccc; padding:5px; }
+</style>
 </head>
+
 <body>
 
 <h2>Videollamada</h2>
 
-<video id="miVideo" autoplay muted></video>
+<button onclick="toggleAudio()">🔇 Mute</button>
+<button onclick="toggleVideo()">🎥 Cámara</button>
+<button onclick="salir()">❌ Salir</button>
+
+<br><br>
+
+<video id="miVideo" autoplay muted playsinline></video>
 <div id="videos"></div>
 
+<hr>
+
+<h3>Chat</h3>
+<div id="chat"></div>
+<input id="msg" placeholder="mensaje">
+<button onclick="enviar()">Enviar</button>
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+
 <script>
-const socket = io('https://videocall-leo-app.onrender.com');
+const socket = io('/');
 const roomId = "sala1";
+
+let miStream;
+let peers = {};
 
 const miVideo = document.getElementById('miVideo');
 const videos = document.getElementById('videos');
+const chat = document.getElementById('chat');
 
-navigator.mediaDevices.getUserMedia({
-    video: true,
-    audio: true
-}).then(stream => {
+// 🔥 PEER CON TURN (YA CORREGIDO)
+const peer = new Peer(undefined, {
+  host: location.hostname,
+  port: location.port || 443,
+  path: '/peerjs',
+  secure: true,
+  debug: 3,
 
-    miVideo.srcObject = stream;
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
 
-    socket.emit('join-room', roomId);
-
-    socket.on('user-connected', userId => {
-        conectarUsuario(userId, stream);
-    });
-
+      {
+        urls: [
+          "turn:global.relay.metered.ca:80?transport=udp",
+          "turn:global.relay.metered.ca:80?transport=tcp",
+          "turns:global.relay.metered.ca:443?transport=tcp"
+        ],
+        username: "5143313b44379e24cf9193fb",
+        credential: "KqrEVcOB8XVNN6H8"
+      }
+    ]
+  }
 });
 
-function conectarUsuario(userId, stream) {
-    const video = document.createElement('video');
+// 🔍 DEBUG
+peer.on('error', err => {
+  console.error("ERROR PEER:", err);
+});
 
-    navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-    }).then(userStream => {
-        video.srcObject = userStream;
-        video.autoplay = true;
-        videos.appendChild(video);
-    });
+// 🎥 cámara
+navigator.mediaDevices.getUserMedia({
+  video: true,
+  audio: true
+}).then(stream => {
+
+  miStream = stream;
+  miVideo.srcObject = stream;
+
+  socket.on('user-connected', peerId => {
+    console.log("Conectando a:", peerId);
+    conectarUsuario(peerId, stream);
+  });
+
+}).catch(err => alert("Error cámara: " + err));
+
+// 📞 recibir llamada
+peer.on('call', call => {
+
+  console.log("Llamada entrante");
+
+  call.answer(miStream);
+
+  const video = document.createElement('video');
+
+  call.on('stream', remoteStream => {
+    console.log("STREAM FUNCIONANDO");
+
+    video.srcObject = remoteStream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = false;
+
+    videos.appendChild(video);
+  });
+
+  call.on('close', () => video.remove());
+
+  peers[call.peer] = call;
+});
+
+// 🔗 conectar usuario
+function conectarUsuario(peerId, stream) {
+
+  const call = peer.call(peerId, stream);
+  const video = document.createElement('video');
+
+  call.on('stream', remoteStream => {
+    video.srcObject = remoteStream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = false;
+
+    videos.appendChild(video);
+  });
+
+  call.on('close', () => video.remove());
+
+  peers[peerId] = call;
+}
+
+// ❌ usuario se fue
+socket.on('user-disconnected', peerId => {
+  if (peers[peerId]) {
+    peers[peerId].close();
+    delete peers[peerId];
+  }
+});
+
+// 🔑 entrar
+peer.on('open', id => {
+  console.log("Mi ID:", id);
+  socket.emit('join-room', { roomId, peerId: id });
+});
+
+// 🔇 audio
+function toggleAudio() {
+  const track = miStream?.getAudioTracks()[0];
+  if (track) track.enabled = !track.enabled;
+}
+
+// 🎥 cámara
+function toggleVideo() {
+  const track = miStream?.getVideoTracks()[0];
+  if (track) track.enabled = !track.enabled;
+}
+
+// 💬 chat
+function enviar() {
+  const input = document.getElementById('msg');
+  if (!input.value.trim()) return;
+
+  socket.emit('message', input.value);
+  input.value = "";
+}
+
+socket.on('createMessage', msg => {
+  const p = document.createElement('p');
+  p.innerText = msg;
+  chat.appendChild(p);
+});
+
+// ❌ salir limpio
+function salir() {
+  for (let id in peers) peers[id].close();
+
+  if (miStream) miStream.getTracks().forEach(t => t.stop());
+
+  socket.disconnect();
+  peer.destroy();
+
+  location.reload();
 }
 </script>
 

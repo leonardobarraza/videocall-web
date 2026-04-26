@@ -1,24 +1,43 @@
 const express = require('express');
 const app = express();
 const server = require('http').createServer(app);
-const io = require('socket.io')(server);
 
+// 🔥 SOCKET.IO SIN CORS ERROR
+const io = require('socket.io')(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// 🔥 PEER SERVER
+const { ExpressPeerServer } = require('peer');
+const peerServer = ExpressPeerServer(server, {
+  debug: true
+});
+
+app.use('/peerjs', peerServer);
 app.use(express.static('public'));
+
+const PORT = process.env.PORT || 3000;
 
 io.on('connection', socket => {
 
-    socket.on('join-room', roomId => {
-        socket.join(roomId);
+  socket.on('join-room', ({ roomId, peerId }) => {
 
-        socket.to(roomId).emit('user-connected', socket.id);
+    socket.join(roomId);
 
-        socket.on('disconnect', () => {
-            socket.to(roomId).emit('user-disconnected', socket.id);
-        });
+    socket.to(roomId).emit('user-connected', peerId);
+
+    socket.on('message', msg => {
+      io.to(roomId).emit('createMessage', msg);
     });
 
+    socket.on('disconnect', () => {
+      socket.to(roomId).emit('user-disconnected', peerId);
+    });
+  });
+
 });
 
-server.listen(3000, () => {
-    console.log("Servidor corriendo en http://localhost:3000");
-});
+server.listen(PORT, () => console.log("Servidor corriendo en " + PORT));
