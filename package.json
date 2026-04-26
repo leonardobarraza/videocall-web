@@ -2,25 +2,13 @@
   "name": "videocall-web",
   "version": "1.0.0",
   "main": "server.js",
-  "dependencies": {
-    "express": "^4.22.1",
-    "socket.io": "^4.8.3"
-  },
-  "description": "��#\u0000 \u0000v\u0000i\u0000d\u0000e\u0000o\u0000c\u0000a\u0000l\u0000l\u0000-\u0000w\u0000e\u0000b\u0000\r\u0000 \u0000",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/leonardobarraza/videocall-web.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/leonardobarraza/videocall-web/issues"
-  },
-  "homepage": "https://github.com/leonardobarraza/videocall-web#readme"
+  "dependencies": {
+    "express": "^4.22.1",
+    "socket.io": "^4.8.3",
+    "peer": "^1.0.2"
+  }
 }

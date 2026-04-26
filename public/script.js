@@ -1,4 +1,4 @@
-const socket = io();
+const socket = io('https://videocall-leo-app.onrender.com');
 
 const roomId = "sala1";
 

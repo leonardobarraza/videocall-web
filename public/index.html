@@ -1,17 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>VideoCall PRO</title>
+    <title>Videollamada</title>
 </head>
 <body>
 
-<h2>Videollamada funcionando 🎥</h2>
+<h2>Videollamada</h2>
 
-<video id="localVideo" autoplay muted playsinline></video>
-<video id="remoteVideo" autoplay playsinline></video>
+<video id="miVideo" autoplay muted></video>
+<div id="videos"></div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="script.js"></script>
+<script>
+const socket = io('https://videocall-leo-app.onrender.com');
+const roomId = "sala1";
+
+const miVideo = document.getElementById('miVideo');
+const videos = document.getElementById('videos');
+
+navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: true
+}).then(stream => {
+
+    miVideo.srcObject = stream;
+
+    socket.emit('join-room', roomId);
+
+    socket.on('user-connected', userId => {
+        conectarUsuario(userId, stream);
+    });
+
+});
+
+function conectarUsuario(userId, stream) {
+    const video = document.createElement('video');
+
+    navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+    }).then(userStream => {
+        video.srcObject = userStream;
+        video.autoplay = true;
+        videos.appendChild(video);
+    });
+}
+</script>
 
 </body>
 </html>
